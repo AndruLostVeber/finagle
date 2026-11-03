@@ -1,13 +1,52 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Competition,leagueName} from '../src/teams.mjs';
-function fixture(){const c=new Competition();const owner=c.create({title:'Урок',requestId:'owner'},'G12345678');c.manage({...owner,action:'team',name:'Баланс'});c.manage({...owner,action:'team',name:'Рост'});const add=(team=0)=>c.join({teamId:c.teams[team].id,name:'Анна',company:'Мастерская',requestId:crypto.randomUUID()},owner.code).member;const a=add(),b=add(),rival=add(1);return {c,owner,a,b,rival,add};}
-const req=(member,round,extra={})=>({...member,round,requestId:crypto.randomUUID(),...extra});
-function start(f){f.c.manage({...f.owner,action:'start'});return f;}
-test('new money is server authoritative and rankings disclose only authorized company contributions',()=>{const {c,a,owner}=start(fixture());assert.equal(c.game.economyVersion,3);const s=c.state(a);assert.equal(s.company.cash,2500000);assert.equal(s.company.profit,0);assert.equal(s.company.capital,2500000);assert.throws(()=>c.progress({...a,events:[],state:{cash:99999999}}),/сервер/);assert.ok(c.view().teams.every(t=>!('members' in t)));assert.equal(s.teams.find(t=>t.id===a.teamId).members.length,2);assert.ok(!s.teams.find(t=>t.id!==a.teamId).members);assert.equal(c.manage({...owner,action:'view'}).teams.flatMap(t=>t.members).length,3);assert.ok(!JSON.stringify(s).includes(a.secret));});
-test('budget reserves obligations; confirmed purchases and request retries debit exactly once',()=>{const {c,a}=start(fixture());assert.equal(c.state(a).company.requiredPayments,160000);assert.throws(()=>c.budget(req(a,1,{amount:2500000})),/бюджет/);c.budget(req(a,1,{amount:500000}));const q=req(a,1,{actionId:'materials',optionId:'standard'});const r=c.decision(q);assert.equal(r.company.cash,2350000);assert.equal(r.company.profit,0);assert.equal(r.company.stock,100);assert.equal(r.company.budgetSpent,150000);assert.equal(r.company.decisionCount,1);assert.equal(c.decision(q).company.cash,2350000);const conflicting=c.decision({...q,optionId:'bulk'});assert.equal(conflicting.company.stock,100);assert.throws(()=>c.decision(req(a,1,{actionId:'materials',optionId:'bulk'})),/подтвержден/);assert.throws(()=>c.decision(req(a,1,{actionId:'equipment',itemIds:['machine','quality']})),/бюджет/);});
-test('finish immutable weekly activity once; teacher advances and stale requests cannot change cash',()=>{const f=start(fixture()),{c,a,owner}=f;c.budget(req(a,1,{amount:500000}));c.decision(req(a,1,{actionId:'materials',optionId:'standard'}));const q=req(a,1);const closed=c.finish(q);assert.equal(closed.company.cash,2590000);assert.equal(closed.company.profit,90000);assert.equal(closed.company.stock,0);assert.equal(closed.company.history.length,1);assert.equal(c.finish(q).company.cash,2590000);assert.throws(()=>c.manage({...owner,action:'advance',round:1}),/заверш/);c.manage({...owner,action:'advance',round:1,skipUnfinished:true});assert.equal(c.game.round,2);assert.equal(c.state(a).company.budgetSpent,0);assert.throws(()=>c.manage({...owner,action:'advance',round:1,skipUnfinished:true}),/недел/i);assert.throws(()=>c.decision(req(a,1,{actionId:'materials',optionId:'standard'})),/недел/i);assert.equal(c.finish(q).company.cash,2590000);assert.equal(c.state(f.b).company.history.length,0);});
-test('loans change cash and debt, never revenue; interest is charged once and capped',()=>{const {c,a}=start(fixture());let r=c.decision(req(a,1,{actionId:'loan',amount:1500000}));assert.equal(r.company.cash,4000000);assert.equal(r.company.debt,1500000);assert.equal(r.company.profit,0);assert.equal(r.company.requiredPayments,163750);assert.throws(()=>c.decision(req(a,1,{actionId:'loan',amount:1})));r=c.finish(req(a,1));assert.equal(r.company.debt,1500000);assert.equal(r.company.profit,-163750);assert.equal(r.company.cash,3836250);});
-test('accounting answers have no monetary effect or decision cost and first accepted answer wins',()=>{const {c,a}=start(fixture());const task=c.state(a).round.tasks[0],q=req(a,1,{taskId:task.id,optionId:'capital'});const result=c.answer(q);assert.equal(result.answer.correct,true);assert.equal(result.company.cash,2500000);assert.equal(result.company.decisionCount,0);assert.equal(c.answer({...q,optionId:'revenue'}).answer.correct,true);assert.throws(()=>c.answer(req(a,1,{taskId:task.id,optionId:'revenue'})),/ответ/);});
-test('early close and isolated final preview never invent unplayed transactions',()=>{const {c,a,owner}=start(fixture());assert.throws(()=>c.testFinal(a,false),/тест/);const before=structuredClone(c.snapshot());const preview=c.testFinal(a,true);assert.equal(preview.preview,true);assert.equal(preview.company.summary.earlyClose,true);assert.equal(preview.company.summary.completedRounds,0);assert.equal(preview.company.profit,0);assert.deepEqual(c.snapshot(),before);c.manage({...owner,action:'close'});const s=c.state(a);assert.equal(s.company.cash,2500000);assert.equal(s.company.profit,0);assert.equal(s.company.summary.earlyClose,true);assert.equal(s.company.summary.completedRounds,0);assert.throws(()=>c.decision(req(a,1,{actionId:'loan',amount:1})),/завершена/);});
-test('five decisions, auth, lobby, restore and legacy saved state',()=>{const f=fixture(),{c,a}=f;assert.throws(()=>c.budget(req(a,1,{amount:500000})),/не открыл/);assert.throws(()=>c.state({...a,secret:'wrong'}),/доступ/);start(f);c.budget(req(a,1,{amount:1000000}));for(const action of [{actionId:'materials',optionId:'standard'},{actionId:'price',optionId:'standard'},{actionId:'situation',optionId:'careful'},{actionId:'loan',amount:100000},{actionId:'repay',amount:100000}])c.decision(req(a,1,action));assert.throws(()=>c.decision(req(a,1,{actionId:'equipment',itemIds:['software']})),/пяти/);const restored=new Competition(structuredClone(c.snapshot()));assert.equal(restored.state(a).company.decisionCount,5);assert.throws(()=>leagueName('../a'));const old=new Competition({game:{code:'OLD',title:'Старая',status:'active',secret:'teacher'},teams:[{id:'t',name:'Команда'}],people:[{id:'p',secret:'s',teamId:'t',name:'А',company:'Б',events:[],state:{screen:'office'}}]});assert.equal(old.member({id:'p',secret:'s'}).state.screen,'office');assert.equal(old.profit(old.people[0]),-250);assert.equal(old.view().game.economyVersion,1);});
+const join=(c,teamName='Баланс',other={})=>{
+ if(!c.game)c.create({title:'Тест',requestId:'test'},'G12345678');
+ if(!c.teams.some(t=>t.name===teamName))c.manage({secret:c.game.secret,action:'team',name:teamName});
+ const result=c.join({teamId:c.teams.find(t=>t.name===teamName).id,name:'Анна',company:'Химия',...other},'G12345678');
+ c.manage({secret:c.game.secret,action:'start'});return result;
+};
+const event=(id='op:e1:0',delta=25)=>({id,delta,title:'Операция',reason:'Результат',day:0});
+test('separate companies, average ranking and private credentials',()=>{
+ const c=new Competition(),a=join(c);join(c);join(c,'Рост');
+ c.progress({...a.member,events:[event()],state:{screen:'office'}});
+ assert.equal(c.people.length,3);assert.equal(c.teams.length,2);
+ const view=c.view();assert.equal(view.teams[0].name,'Баланс');assert.equal(view.teams[0].profit,-237.5);
+ assert.equal(view.teams[0].members[1].profit,-250);assert.ok(!JSON.stringify(view).includes(a.member.secret));
+ assert.equal(c.people[0].state.screen,'office');assert.equal(c.people[1].state,null);
+});
+test('authenticated updates, idempotency, first decision wins and invalid profit',()=>{
+ const c=new Competition(),a=join(c);
+ assert.throws(()=>c.progress({...a.member,secret:'bad',events:[]}),/доступ/);
+ c.progress({...a.member,events:[event()]});c.progress({...a.member,events:[event(),event()]});
+ assert.equal(c.people[0].events.length,1);assert.equal(c.profit(c.people[0]),-225);
+ c.progress({...a.member,events:[event('op:e1:0',-35)]});assert.equal(c.profit(c.people[0]),-225);
+ assert.throws(()=>c.progress({...a.member,events:[event('op:e1:1',999)]}));
+ assert.equal(c.people[0].events.length,1);
+});
+test('restoration, practice exclusion and retried joins',()=>{
+ const c=new Competition(),a=join(c,'Рост',{requestId:'join-once'});join(c,'Рост',{requestId:'join-once'});
+ assert.equal(c.people.length,1);
+ assert.throws(()=>c.join({teamName:'Новая',name:'A',company:'A'},'G12345678'));assert.equal(c.view().teams.length,1);
+ const restored=new Competition(JSON.parse(JSON.stringify(c.snapshot())));
+ assert.equal(restored.member(a.member).name,'Анна');
+ assert.throws(()=>leagueName('../a'));assert.equal(leagueName('Группа_1'),'Группа_1');
+});
+
+test('only teacher creates games and teams; lobby and closed games reject decisions',()=>{
+ const c=new Competition();assert.throws(()=>c.join({name:'A',company:'A',teamName:'B'},'missing'),/не найдена/);
+ assert.throws(()=>c.view(),/не найдена/);
+ const owner=c.create({title:'Урок',requestId:'owner'},'G12345678');
+ assert.throws(()=>c.manage({action:'team',name:'Баланс',secret:'pupil'}),/доступ/);
+ c.manage({...owner,action:'team',name:'Баланс'});
+ const p=c.join({teamId:c.teams[0].id,name:'A',company:'A',practice:true},owner.code);
+ assert.equal(c.people[0].practice,false);
+ assert.throws(()=>c.progress({...p.member,events:[event()]}),/не открыл/);
+ c.manage({...owner,action:'start'});c.progress({...p.member,events:[event()]});
+ c.manage({...owner,action:'close'});
+ assert.throws(()=>c.progress({...p.member,events:[event('op:e1:1')]}),/завершена/);
+ assert.throws(()=>c.join({teamId:c.teams[0].id,name:'B',company:'B'},owner.code),/завершен/);
+ const view=JSON.stringify(c.view());assert.ok(!view.includes(owner.secret));assert.ok(!view.includes('owner'));
+ const restored=new Competition(JSON.parse(JSON.stringify(c.snapshot())));assert.equal(restored.manage({...owner,action:'view'}).game.status,'closed');
+});

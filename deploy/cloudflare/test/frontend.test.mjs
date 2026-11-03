@@ -1,38 +1,52 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
-const source=new URL('../../../demo-next/quarter.mjs',import.meta.url);
-async function ui(){assert.ok(existsSync(source),'quarter client must exist');return import(source)}
-const storage=()=>{const map=new Map();return {getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)}};
-const auth={league:'G12345678',id:'person',secret:'secret',teamId:'team'};
-test('uncertain purchase survives reload and retries its original identity and selection',async()=>{
- const {createSession}=await ui(),store=storage();let accepted;const s=createSession({storage:store,request:async(path,body)=>{accepted={path,body};throw Error('offline')}});s.setMember(auth);
- await assert.rejects(s.write('decision',{round:1,actionId:'equipment',itemIds:['press']}),/offline/);
- const id=accepted.body.requestId;assert.ok(id);let retry;
- const resumed=createSession({storage:store,request:async(path,body)=>{retry={path,body};return {company:{cash:2200000}}}});
- assert.equal(resumed.member.id,'person');assert.equal(resumed.pending.body.requestId,id);
- const result=await resumed.retry();assert.equal(result.company.cash,2200000);assert.deepEqual(retry,accepted);assert.equal(resumed.pending,null);
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+function game(){
+ const html=readFileSync(new URL('../../../demo-next/index.html',import.meta.url),'utf8');
+ let source=html.match(/<script>([\s\S]*?)<\/script>/)[1];
+ source=source.slice(0,source.indexOf('const hotApi='))+`window.test={get S(){return S},set S(s){S=s},FRESH,T,DAYS,EQUIP,dayTasks,taskOps,ensureAnswer,testOf,scoreOp,confirmTask,recordDecision,companyProfit,businessImpact,rTitle,rCreate,rPC,rMeet,rEquip,rTalk,rNight,resultsBody,TEAM};})();`;
+ const events={},nodes=new Map();
+ const node=id=>{if(!nodes.has(id))nodes.set(id,{innerHTML:'',style:{},classList:{toggle(){}},querySelector(){return null},querySelectorAll(){return []},addEventListener(type,fn){events[id+':'+type]=fn},insertAdjacentHTML(){}});return nodes.get(id)};
+ const document={querySelector(id){return ['#scr','#ov','#stage','#toastc','#taskpg'].includes(id)?node(id):null},getElementById(id){return node('#'+id)},addEventListener(){}};
+ const local=new Map(),window={addEventListener(){}};
+ vm.runInNewContext(source,{document,window,localStorage:{getItem:k=>local.get(k),setItem:(k,v)=>local.set(k,v)},setInterval(){},setTimeout(){},clearTimeout(){},clearInterval(){},console,location:{protocol:'http:',hostname:'localhost',port:'8790'}});
+ return {api:window.test,events};
+}
+test('student entry accepts a code and existing team only',()=>{
+ const {api:g}=game();const title=g.rTitle();assert.equal((title.match(/<button/g)||[]).length,1);assert.match(title,/Присоединиться к игре/);assert.doesNotMatch(title,/Вступление|Продолжить|Настройки|Об игре|Рейтинг команд|Деловая игра|ноябрь/);assert.match(g.rCreate(),/Команда/);assert.doesNotMatch(g.rCreate(),/Создать команду|Новая команда|QR/);assert.match(g.rCreate(),/Код игры/);
+ g.S.screen='office';assert.match(g.rPC(),/Результаты команд/);assert.match(g.rPC(),/Моя компания/);
 });
-test('a second write cannot overwrite an uncertain decision; a server rejection unlocks it',async()=>{
- const {createSession}=await ui(),s=createSession({storage:storage(),request:async()=>{throw Error('offline')}});s.setMember(auth);
- await assert.rejects(s.write('decision',{round:1,actionId:'a',optionId:'yes'}));
- await assert.rejects(s.write('decision',{round:1,actionId:'b',optionId:'no'}),/подтверждение/);
- const bad=Error('budget');bad.status=422;const r=createSession({storage:storage(),request:async()=>{throw bad}});r.setMember(auth);
- await assert.rejects(r.write('budget',{round:1,amount:999}));assert.equal(r.pending,null);
+test('all January paths render, answers change profit once, companies are isolated',()=>{
+ const {api:g}=game();
+ for(const site of ['A','B','V'])for(const money of ['A','B','V'])for(const raw of ['A','B','V']){
+  g.S=g.FRESH();const s=g.S;s.screen='office';s.setup.company='Компания';s.setup.team='Тест';s.choices={site,money,raw,equip:Array(10).fill(1)};
+  for(let day=0;day<g.DAYS.length;day++){
+   s.day=day;
+   for(const id of g.dayTasks(day)){
+    s.task=id;const ans=g.ensureAnswer(id);
+    for(const [i,op] of g.taskOps(id).entries()){
+     const test=g.testOf(id,i);assert.ok(test.opts.length>=3);
+     const rows=op.ref||[];ans.ops[i]={pick:0,none:rows.length===0,rows:rows.map(r=>({dt:r[0],kt:r[1],amt:String(r[2])}))};
+     const result=g.scoreOp(op,ans.ops[i]);assert.equal(result.got,result.max);
+     g.recordDecision('op:'+id+':'+i,25,op.t,'Верно');g.recordDecision('op:'+id+':'+i,25,op.t,'Верно');
+    }
+    ans.done=true;
+   }
+   assert.doesNotThrow(()=>g.rNight());
+  }
+  assert.equal(g.companyProfit(),-250+s.finance.events.length*25);
+  assert.match(g.resultsBody('company'),/История решений/);
+ }
+ const before=g.S;g.S=g.FRESH();assert.equal(g.companyProfit(),-250);assert.ok(before.finance.events.length>0);
 });
-test('order is one payload with only explicitly enabled items and no financial outcomes',async()=>{
- const {decisionPayload,orderCost}=await ui();const action={id:'equipment',kind:'purchase',items:[{id:'a',cost:100},{id:'b',cost:250}]};
- assert.deepEqual(decisionPayload(action,{items:{a:true,b:false},cash:999999}),{actionId:'equipment',itemIds:['a']});
- assert.equal(orderCost(action,{items:{a:true,b:false}}),100);
- assert.deepEqual(decisionPayload(action,{items:{}}),{actionId:'equipment',itemIds:[]});
- assert.throws(()=>decisionPayload({id:'loan',kind:'loan',min:100,max:1000,step:100},{amount:-10}));
-});
-test('budget reserves obligations and separates quarter forecast from spendable cash',async()=>{
- const {financeView}=await ui();assert.deepEqual(financeView({cash:1000000,forecastProfit:9000000,profit:10000,budget:500000,budgetSpent:125000,requiredPayments:300000,spendable:700000,payables:0}),{cash:1000000,forecast:9000000,profit:10000,remaining:375000,available:700000,blocked:false});
- assert.equal(financeView({cash:100,budget:100,budgetSpent:0,spendable:100,payables:1}).blocked,true);
-});
-test('summary distinguishes early actuals, forecast, debt and isolated preview',async()=>{
- const {summaryHTML,rankingHTML}=await ui();const state={game:{status:'closed',round:5,totalRounds:12},preview:true,company:{company:'<script>',cash:500000,profit:20000,forecastProfit:70000,debt:100000,payables:5000,summary:{earlyClose:true,roundsCompleted:5}},teams:[]};
- const html=summaryHTML(state);assert.match(html,/Досрочное/);assert.match(html,/Тестовый/);assert.match(html,/20\s000/);assert.match(html,/100\s000/);assert.doesNotMatch(html,/<script>/);
- const ranks=rankingHTML([{id:'a',name:'A',rank:1,memberCount:2,profit:10,forecastProfit:20},{id:'b',name:'B',rank:1,memberCount:1,profit:10,forecastProfit:20}],'a',false);assert.equal((ranks.match(/data-rank="1"/g)||[]).length,2);
+test('actual answer button applies correct and incorrect financial outcomes',()=>{
+ const {api:g,events}=game(),s=g.S;s.screen='office';s.task='e1';const ans=g.ensureAnswer('e1');
+ const opts=g.testOf('e1',0).opts,op=g.taskOps('e1')[0];
+ const correct=opts.findIndex(rows=>JSON.stringify(rows)===JSON.stringify(op.ref));
+ assert.ok(correct>=0);ans.sel=correct;
+ const click=()=>events['#stage:click']({target:{closest:()=>({dataset:{act:'tok'}})}});
+ click();assert.equal(g.companyProfit(),-225);
+ const next=g.testOf('e1',1);ans.sel=next.opts.findIndex(rows=>JSON.stringify(rows)!==JSON.stringify(g.taskOps('e1')[1].ref));
+ click();assert.equal(g.companyProfit(),-260);
 });
