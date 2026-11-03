@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+const base=process.env.KURO_TEST_URL||'http://localhost:8790';
+let league='G00000000';
+async function post(path,body){const response=await fetch(base+'/api/teams/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({league,...body})});return {status:response.status,data:await response.json()};}
+const join=async(teamId,name)=>{const r=await post('join',{teamId,name,company:'Компания '+name,requestId:randomUUID()});assert.equal(r.status,200);return r.data;};
+assert.equal((await fetch(base+'/health')).status,200);
+const page=await (await fetch(base+'/demo/index.html')).text();
+assert.ok(page.includes('window.kuroDemo='));assert.ok(page.includes('<script src="kuro-embed.js?'));
+assert.ok(!/QR|clConnect/.test(page));assert.ok(page.includes('Код игры'));
+assert.equal((await fetch(base+'/teacher/')).status,200);
+for(const path of ['/s','/s/qr.svg?room=1234','/ws/day','/projector','/join','/api/problems'])assert.equal((await fetch(base+path)).status,404,path);
+assert.equal((await post('join',{name:'Никто',company:'Нет',teamName:'Нет'})).status,404);
+const created=await post('create',{title:'Проверка панели',requestId:randomUUID()});assert.equal(created.status,200);
+league=created.data.code;const secret=created.data.secret;
+assert.equal((await post('teacher',{secret:'wrong',action:'start'})).status,403);
+await post('teacher',{secret,action:'team',name:'Баланс'});
+const added=await post('teacher',{secret,action:'team',name:'Рост'});
+const ids=Object.fromEntries(added.data.teams.map(t=>[t.name,t.id]));
+const a=await join(ids['Баланс'],'Анна'),b=await join(ids['Баланс'],'Борис'),c=await join(ids['Рост'],'Вера');
+assert.equal((await post('progress',{...a.member,events:[]})).status,409);
+await post('teacher',{secret,action:'start'});
+assert.equal(a.member.teamId,b.member.teamId);assert.notEqual(a.member.id,b.member.id);
+const events=[{id:'op:e1:0',delta:25,title:'Капитал',reason:'Верно',day:0}];
+for(let i=0;i<2;i++){const r=await post('progress',{...a.member,events,state:{screen:'office',company:'Анна'}});assert.equal(r.status,200);assert.equal(r.data.profit,-225);}
+const bad=await post('progress',{...a.member,secret:'invalid',events});assert.equal(bad.status,403);
+const ranks=await (await fetch(base+'/api/teams?league='+league)).json();
+assert.equal(ranks.teams.length,2);assert.equal(ranks.teams[0].name,'Баланс');assert.equal(ranks.teams[0].profit,-237.5);
+assert.equal(ranks.teams[0].members.find(m=>m.id===b.member.id).profit,-250);
+assert.ok(!JSON.stringify(ranks).includes(a.member.secret));
+const resumed=await post('resume',a.member);assert.equal(resumed.data.state.company,'Анна');
+const other=await post('resume',b.member);assert.equal(other.data.state,null);
+await post('teacher',{secret,action:'close'});assert.equal((await post('progress',{...a.member,events})).status,409);
+console.log('Smoke OK: команды, независимые компании, прибыль, рейтинг, сохранение и удаленные маршруты');

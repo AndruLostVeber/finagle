@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Куро Продакшн</title>
+    <style>
+      /* Та же схема, что у демо: иначе браузер подложит под iframe непрозрачный фон. */
+      html { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0B1110; }
+      #unity-canvas { position: fixed; inset: 0; display: block; width: 100%; height: 100%; background: #0B1110; outline: none; }
+      /* Демо поверх 3D: в свободном офисе прозрачно и пропускает мышь в игру. */
+      #demo { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+      /* Подпись предмета под мышью и подсказка — над 3D, мышь не ловят. */
+      #hud { position: fixed; left: 0; right: 0; bottom: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+             pointer-events: none; font: 15px system-ui, -apple-system, sans-serif; color: #E4EFEC; }
+      body.busy #hud { display: none; }
+      #hud-label { background: rgba(18, 28, 27, .9); color: #FFF6E6; font-weight: 600; font-size: 18px; padding: 6px 16px;
+                   border: 2px solid #E2A93B; border-radius: 20px; }
+      #hud-label:empty { display: none; }
+      #hud-hint { opacity: .8; text-shadow: 0 1px 2px #000; }
+      kbd { display: inline-block; min-width: 1.2em; padding: 1px 5px; margin-right: 4px; border: 1px solid rgba(255, 255, 255, .3);
+            border-radius: 4px; background: rgba(255, 255, 255, .14); font: inherit; font-size: 13px; text-align: center; }
+
+      /* Глаза: между 3D и демо. Вне офиса закрыты — их не видно за непрозрачным демо.
+         Веки — черное вокруг эллипса-"щели" #lid: высота щели 0 — глаза закрыты. */
+      #eyes { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+      #eyes.open { display: none; }
+      #lid { position: absolute; left: 50%; top: 50%; width: 130vw; height: 0; transform: translate(-50%, -50%); border-radius: 50%;
+             box-shadow: 0 0 0 200vmax #000, inset 0 0 7vh 3vh #000; }
+      #eyes.waking #lid { animation: wake var(--t) both; }
+      #eyes.sleeping #lid { animation: sleep var(--t) both; }
+      @keyframes wake {
+        0%, 28% { height: 0; animation-timing-function: ease-out; }
+        42% { height: 22vh; animation-timing-function: ease-in-out; }
+        52% { height: 4vh; animation-timing-function: ease-in-out; }
+        78% { height: 60vh; animation-timing-function: ease-in; }
+        100% { height: 320vh; }
+      }
+      @keyframes sleep {
+        0% { height: 170vh; animation-timing-function: ease-in; }
+        35% { height: 50vh; animation-timing-function: ease-in-out; }
+        50% { height: 70vh; animation-timing-function: ease-in; }
+        100% { height: 0; }
+      }
+      /* 3D мутное, пока глаза не открылись, и мутнеет, когда закрываются. */
+      #unity-canvas.waking { animation: unblur var(--t) both; }
+      #unity-canvas.sleeping { animation: blur var(--t) both; }
+      @keyframes unblur {
+        0%, 28% { filter: blur(12px) brightness(.4); }
+        60% { filter: blur(5px) brightness(.8); }
+        100% { filter: none; }
+      }
+      @keyframes blur { to { filter: blur(6px) brightness(.5); } }
+      /* Какой сегодня день: на темном экране, пока глаза открываются. */
+      #day { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 6px; opacity: 0;
+             color: #FFF6E6; font: 16px system-ui, -apple-system, sans-serif; text-align: center; text-shadow: 0 2px 12px #000; }
+      #eyes.waking #day { animation: day var(--t) both; }
+      #day small { font-size: 14px; letter-spacing: .18em; text-transform: uppercase; color: #E2A93B; }
+      #day b { font-size: clamp(36px, 7vw, 64px); font-weight: 600; line-height: 1.1; }
+      #day span { font-size: 15px; opacity: .8; }
+      @keyframes day { 0% { opacity: 0; } 10%, 62% { opacity: 1; } 85%, 100% { opacity: 0; } }
+      #eyes.fadeshut { animation: fade-in .6s both; }
+      @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+      /* Ролик прихода в деловой центр: подпись места и кнопка «Пропустить». */
+      #arrive { position: fixed; inset: 0; pointer-events: none; display: none; font: 16px system-ui, -apple-system, sans-serif; color: #fff; }
+      #arrive.on { display: block; }
+      #arrive .where { position: absolute; left: 56px; top: 48px; display: grid; gap: 4px; text-shadow: 0 2px 12px rgba(0,0,0,.6); animation: where 5.5s both; }
+      #arrive .where b { font-size: clamp(22px, 3vw, 34px); font-weight: 600; letter-spacing: .02em; }
+      #arrive .where span { opacity: .85; }
+      @keyframes where { 0% { opacity: 0; transform: translateY(8px); } 12%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+      #arrive button { position: absolute; right: 32px; bottom: 28px; pointer-events: auto; border: 1px solid rgba(255,255,255,.35); border-radius: 10px;
+                       background: rgba(10,16,18,.55); color: #fff; font: inherit; font-size: 15px; padding: 10px 16px; cursor: pointer; }
+      #arrive button:hover { background: rgba(31,111,104,.9); }
+      @media (prefers-reduced-motion: reduce) {
+        #eyes.waking #lid, #eyes.sleeping #lid, #unity-canvas.waking, #unity-canvas.sleeping { animation: none; }
+        #eyes.waking { animation: fade var(--t) reverse both; }
+        #eyes.sleeping { animation: fade var(--t) both; }
+        @keyframes fade { 0% { opacity: 0; } 60%, 100% { opacity: 1; } }
+      }
+
+      #loading { position: fixed; inset: 0; display: grid; place-content: center; gap: 12px; background: #0B1110; color: #E4EFEC;
+                 font: 16px system-ui, -apple-system, sans-serif; text-align: center; }
+      #loading b { color: #48C6B4; letter-spacing: .04em; }
+      #bar { width: 240px; height: 6px; border-radius: 3px; background: #26413D; overflow: hidden; }
+      #fill { width: 0; height: 100%; background: #E2A93B; transition: width .2s; }
+    </style>
+  </head>
+  <body>
+    <!-- 3D-офис (Unity) на всю вкладку; над ним глаза; поверх — демо: титул, окна, отчетность. -->
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="eyes"><div id="lid"></div><div id="day"><small id="day-wd"></small><b id="day-date"></b><span id="day-tasks"></span></div></div>
+    <iframe id="demo" src="demo/index.html" title="Куро Продакшн"></iframe>
+    <div id="arrive"><div class="where"><b>Деловой центр «Меридиан»</b><span>12 января, 8:50</span></div><button id="skip">Пропустить ›</button></div>
+    <div id="hud"><span id="hud-label"></span><span id="hud-hint"><kbd>A</kbd><kbd>D</kbd>осмотреться</span></div>
+    <div id="loading"><b>КУРО ПРОДАКШН</b><div id="bar"><div id="fill"></div></div><span id="pct">0%</span></div>
+    <script src="Build/{{{ LOADER_FILENAME }}}"></script>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+      var demo = document.querySelector("#demo");
+      var eyes = document.querySelector("#eyes");
+      var loading = document.querySelector("#loading");
+      var unity = null;
+      var busy = true; // демо занято: титул, окно поверх офиса, отчетность
+      var awake = false; // глаза открыты: можно осматриваться
+      var eyesTimer = 0;
+      var officeData = ""; // "непрочитанные,задачи" для телефона и лотка в 3D
+
+      // Unity → страница: камера подлетела к предмету, открыть его окно в демо.
+      window.kuroOpen = function (action) {
+        var w = demo.contentWindow;
+        if (w && w.kuroOpen) w.kuroOpen(action);
+      };
+
+      // Unity → страница: подпись предмета под мышью ("" — ничего).
+      window.kuroHover = function (label) {
+        document.querySelector("#hud-label").textContent = label;
+      };
+
+      // Демо → страница: экран занят или снова свободный офис; день начался или кончился;
+      // сколько непрочитанных сообщений и открытых задач.
+      window.addEventListener("message", function (e) {
+        if (e.source !== demo.contentWindow || !e.data) return;
+        if (e.data.kuro === "mode") {
+          busy = e.data.busy;
+          apply();
+        } else if (e.data.kuro === "eyes") {
+          blink(e.data);
+        } else if (e.data.kuro === "office") {
+          officeData = e.data.data;
+          if (unity) unity.SendMessage("WebBridge", "SetOffice", officeData);
+        }
+      });
+
+      // Unity → страница: ролик прихода окончен. Затемнить экран и начать первый день в демо.
+      var arrive = document.querySelector("#arrive");
+      window.kuroArrived = function () {
+        arrive.classList.remove("on");
+        setEyes("fadeshut");
+        setTimeout(function () {
+          var w = demo.contentWindow;
+          if (w && w.kuroArrived) w.kuroArrived();
+        }, 650);
+      };
+      document.querySelector("#skip").addEventListener("click", function () {
+        if (unity) unity.SendMessage("WebBridge", "SkipArrival");
+        else window.kuroArrived();
+      });
+
+      // wake — подпись дня на темном, глаза открываются; sleep — закрываются;
+      // arrive — ролик прихода в деловой центр (3D видно целиком); off — закрыты.
+      function blink(m) {
+        clearTimeout(eyesTimer);
+        awake = false;
+        if (m.phase === "arrive") {
+          setEyes("open");
+          arrive.classList.remove("on");
+          void arrive.offsetWidth;
+          arrive.classList.add("on");
+          if (unity) unity.SendMessage("WebBridge", "PlayArrival");
+          else setTimeout(window.kuroArrived, 1000);
+        } else if (m.phase === "wake") {
+          document.querySelector("#day-wd").textContent = m.wd;
+          document.querySelector("#day-date").textContent = m.date;
+          document.querySelector("#day-tasks").textContent = m.note || (m.tasks ? "Задач: " + m.tasks : "");
+          // Голова поднимается от стола, когда глаза начинают открываться (28% анимации).
+          if (unity) unity.SendMessage("WebBridge", "Wake", m.ms * 0.28 / 1000);
+          setEyes("waking", m.ms);
+          eyesTimer = setTimeout(function () {
+            setEyes("open");
+            awake = true;
+            apply();
+          }, m.ms);
+        } else if (m.phase === "sleep") {
+          setEyes("sleeping", m.ms);
+          eyesTimer = setTimeout(function () { setEyes("shut"); }, m.ms);
+        } else {
+          setEyes("shut");
+        }
+        apply();
+      }
+
+      function setEyes(state, ms) {
+        eyes.className = "";
+        canvas.classList.remove("waking", "sleeping");
+        void eyes.offsetWidth; // та же анимация еще раз — с начала
+        eyes.style.setProperty("--t", (ms || 0) + "ms");
+        canvas.style.setProperty("--t", (ms || 0) + "ms");
+        eyes.className = state;
+        if (state === "waking" || state === "sleeping") canvas.classList.add(state);
+      }
+
+      function apply() {
+        var blocked = busy || !awake;
+        demo.style.pointerEvents = busy ? "auto" : "none";
+        document.body.classList.toggle("busy", blocked);
+        if (!unity) return;
+        unity.SendMessage("WebBridge", "SetBlocked", blocked ? "1" : "0");
+        if (busy) {
+          demo.contentWindow.focus();
+        } else {
+          unity.SendMessage("WebBridge", "OnWebClosed");
+          canvas.focus();
+        }
+      }
+
+      createUnityInstance(canvas, {
+        arguments: [],
+#if PROGRESSIVE_ASSET_LOADING
+        primaryDataUrls: {{{ JSON.stringify(PRIMARY_DATA_FILES) }}},
+        secondaryDataUrls: {{{ JSON.stringify(SECONDARY_DATA_FILES) }}},
+#else
+        dataUrl: "Build/{{{ DATA_FILENAME }}}",
+#endif
+        frameworkUrl: "Build/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_WASM
+        codeUrl: "Build/{{{ CODE_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: "Build/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+      }, function (progress) {
+        var p = Math.round(progress * 100) + "%";
+        document.querySelector("#fill").style.width = p;
+        document.querySelector("#pct").textContent = p;
+      }).then(function (instance) {
+        unity = instance;
+        loading.remove();
+        if (officeData) unity.SendMessage("WebBridge", "SetOffice", officeData);
+        apply();
+        if (demo.contentWindow) demo.contentWindow.postMessage({ kuro: "ready" }, "*");
+      }).catch(function (message) {
+        loading.textContent = message;
+      });
+    </script>
+  </body>
+</html>

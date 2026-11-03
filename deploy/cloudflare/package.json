@@ -1,0 +1,13 @@
+{
+  "name": "kuro-cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "dev": "wrangler dev --port 8790",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {},
+  "devDependencies": {"wrangler": "4.156.2"}
+}

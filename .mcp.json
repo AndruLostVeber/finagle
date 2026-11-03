@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "unity-mcp": {
+      "type": "stdio",
+      "command": "/Users/avvr/.unity/relay/relay_mac_arm64.app/Contents/MacOS/relay_mac_arm64",
+      "args": [
+        "--mcp",
+        "--project-path",
+        "/Users/avvr/Documents/фин_игра/unity"
+      ],
+      "env": {}
+    }
+  }
+}

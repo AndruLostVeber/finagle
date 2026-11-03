@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kuro-production",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-11-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/ws/*", "/api/*", "/s", "/s/*", "/p", "/phone", "/projector", "/join", "/qr.svg", "/export.csv", "/health"]
+  },
+  "durable_objects": {
+    "bindings": [{"name": "CLASSROOMS", "class_name": "Classrooms"}]
+  },
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["Classrooms"]}]
+}

@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kuro-teams",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "cd '/Users/avvr/Documents/фин_игра/deploy/cloudflare' && exec npm run dev -- --ip 0.0.0.0"
+      ],
+      "port": 8790
+    }
+  ]
+}

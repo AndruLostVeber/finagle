@@ -1,0 +1,260 @@
+/* «Куро Продакшн»: офисный HUD и экран «КУРО OS». Цвета — из веб-демо. */
+
+.kc {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.28);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-right: 6px;
+    font-size: 14px;
+    color: #E4EFEC;
+    -unity-text-align: middle-center;
+}
+
+/* ---------- HUD ---------- */
+
+.hud {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.hud__bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 28px;
+    align-items: center;
+}
+
+.hud__label {
+    background-color: rgba(18, 28, 27, 0.9);
+    color: #FFF6E6;
+    font-size: 24px;
+    -unity-font-style: bold;
+    padding: 6px 18px;
+    border-radius: 20px;
+    border-width: 2px;
+    border-color: #E2A93B;
+    margin-bottom: 14px;
+}
+
+.hud__row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.hud__hint {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 18px;
+    opacity: 0.8;
+}
+
+.hud__hint-text {
+    color: #E4EFEC;
+    font-size: 17px;
+    margin-left: 2px;
+}
+
+.hud__btn {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(18, 28, 27, 0.88);
+    border-width: 0;
+    border-radius: 20px;
+    padding: 6px 16px 6px 8px;
+    margin: 0;
+}
+
+.hud__btn:hover {
+    background-color: #1F6F68;
+}
+
+.hud__btn:active {
+    background-color: #134944;
+}
+
+.hud__btn-text {
+    color: #E4EFEC;
+    font-size: 18px;
+}
+
+/* ---------- КУРО OS ---------- */
+
+.os {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.25s;
+}
+
+.os--open {
+    opacity: 1;
+}
+
+/* Положение и размер задает KuroOS: ровно поверх экрана 3D-монитора. */
+.os__screen {
+    position: absolute;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: #1F4D48;
+}
+
+.os__desk {
+    flex-grow: 1;
+}
+
+.os__icons {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 248px;
+    padding: 18px;
+}
+
+.os__icon {
+    width: 100px;
+    height: 104px;
+    margin: 0 3px 6px 0;
+    padding: 8px 4px 0 4px;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-radius: 10px;
+}
+
+.os__icon:hover {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.os__icon:active {
+    background-color: rgba(255, 255, 255, 0.22);
+}
+
+.os__ic {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    align-items: center;
+    justify-content: center;
+}
+
+.os__ic-glyph {
+    color: #FFFFFF;
+    font-size: 22px;
+    -unity-font-style: bold;
+}
+
+.os__icon-name {
+    color: #F4F7F6;
+    font-size: 13px;
+    margin-top: 7px;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.os__logo {
+    position: absolute;
+    right: 40px;
+    bottom: 30px;
+    font-size: 64px;
+    -unity-font-style: bold;
+    -unity-text-align: lower-right;
+    color: rgba(255, 255, 255, 0.08);
+}
+
+.os__win {
+    position: absolute;
+    left: 248px;
+    top: 10px;
+    right: 10px;
+    bottom: 10px;
+    background-color: #FBF8F1;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.os__win-bar {
+    height: 36px;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 6px 0 14px;
+    background-color: #1F3A37;
+}
+
+.os__win-title {
+    color: #FFFFFF;
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+.os__win-close {
+    width: 30px;
+    height: 28px;
+    margin: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-radius: 6px;
+    color: #FFFFFF;
+    font-size: 18px;
+}
+
+.os__win-close:hover {
+    background-color: #C4453B;
+}
+
+.os__win-body {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.os__win-text {
+    color: #6E665C;
+    font-size: 18px;
+}
+
+.os__taskbar {
+    height: 38px;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 12px;
+    background-color: rgba(10, 16, 18, 0.9);
+}
+
+.os__start {
+    color: #48C6B4;
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+.os__tab {
+    margin-left: 10px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background-color: #26413D;
+    color: #DDE8E5;
+    font-size: 13px;
+}
+
+.os__spacer {
+    flex-grow: 1;
+}
+
+.os__date {
+    color: #DDE8E5;
+    font-size: 13px;
+    margin-right: 10px;
+}
+
+.os__clock {
+    color: #E2A93B;
+    font-size: 13px;
+}

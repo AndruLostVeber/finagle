@@ -1,0 +1,789 @@
+<meta charset="utf-8">
+<title>LLM-совещания «Куро Продакшн»</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: инженерная схема как в согласовании архитектуры — широкие фигуры с прокруткой, текст колонкой ~70 знаков.
+   Цвет кодирует роль: синий — ход игрока, фиолетовый — модель, янтарный — мир и данные методиста,
+   зеленый — учет, красный — проверки, серый — хранение. */
+:root {
+  --bg: #f3f4f1;
+  --zone: #fafbf8;
+  --panel: #ffffff;
+  --fg: #1c2226;
+  --fg-2: #3b454d;
+  --muted: #69737c;
+  --rule: #d3d8d6;
+  --contour: #8a959c;
+
+  --path: #2b5c8c;   --path-fill: #e8f0f8;
+  --model: #6a46a0;  --model-fill: #f0ebf8;
+  --world: #8f5f12;  --world-fill: #fbf1df;
+  --engine: #2a7453; --engine-fill: #e5f3ec;
+  --guard: #b13f36;  --guard-fill: #fbeae8;
+  --store: #546477;  --store-fill: #eaeef3; --store-zone: #f1f4f7;
+
+  --font-ui: "Golos Text", "PT Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161a; --zone: #171c21; --panel: #1c2228;
+    --fg: #e3e8ec; --fg-2: #c3cbd2; --muted: #8f9aa4; --rule: #333c45; --contour: #5d6872;
+    --path: #82b2e2;  --path-fill: #1a2735;
+    --model: #bb9ce8; --model-fill: #251f33;
+    --world: #e2b366; --world-fill: #2e2618;
+    --engine: #6fcc9c; --engine-fill: #162b23;
+    --guard: #ec8b81; --guard-fill: #331e1d;
+    --store: #a4b3c3; --store-fill: #212a33; --store-zone: #1a2027;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161a; --zone: #171c21; --panel: #1c2228;
+  --fg: #e3e8ec; --fg-2: #c3cbd2; --muted: #8f9aa4; --rule: #333c45; --contour: #5d6872;
+  --path: #82b2e2;  --path-fill: #1a2735;
+  --model: #bb9ce8; --model-fill: #251f33;
+  --world: #e2b366; --world-fill: #2e2618;
+  --engine: #6fcc9c; --engine-fill: #162b23;
+  --guard: #ec8b81; --guard-fill: #331e1d;
+  --store: #a4b3c3; --store-fill: #212a33; --store-zone: #1a2027;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.page {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  display: grid;
+  gap: 44px;
+}
+header { display: grid; gap: 10px; max-width: 78ch; }
+.eyebrow {
+  font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+}
+h1 {
+  margin: 0; font-size: clamp(26px, 3.2vw, 36px); line-height: 1.15;
+  font-weight: 700; letter-spacing: -.01em; text-wrap: balance;
+}
+h2 {
+  margin: 0; font-size: 21px; line-height: 1.25; font-weight: 700; text-wrap: balance;
+}
+.lead { margin: 0; color: var(--fg-2); font-size: 16px; }
+.lead code, p code, td code, li code { font-family: var(--font-mono); font-size: .88em; }
+section { display: grid; gap: 16px; min-width: 0; }
+.sec-head { display: grid; gap: 6px; max-width: 78ch; }
+.sec-head p { margin: 0; color: var(--fg-2); }
+
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+figure { margin: 0; display: grid; gap: 12px; min-width: 0; }
+figcaption { color: var(--muted); font-size: 13.5px; max-width: 90ch; }
+.diagram { display: block; width: 100%; height: auto; }
+.d1 { min-width: 1180px; }
+.d2 { min-width: 1020px; }
+
+/* SVG */
+.diagram text { font-family: var(--font-ui); fill: var(--fg); }
+.diagram .t-title { font-size: 13.5px; font-weight: 600; }
+.diagram .t-line { font-size: 11.5px; fill: var(--fg-2); }
+.diagram .t-mono { font-family: var(--font-mono); font-size: 11px; fill: var(--fg-2); }
+.diagram .t-code { font-family: var(--font-mono); font-size: 13.5px; font-weight: 600; }
+.diagram .t-frame { font-size: 13.5px; font-weight: 700; }
+.diagram .t-sub { font-size: 11px; fill: var(--muted); }
+.diagram .t-chip { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.diagram .lbl {
+  font-size: 11px; font-weight: 500; fill: var(--fg-2);
+  paint-order: stroke; stroke: var(--zone); stroke-width: 5px; stroke-linejoin: round;
+}
+.diagram .lbl.out { stroke: var(--bg); }
+.diagram .lbl .n { font-weight: 700; fill: var(--fg); }
+
+.frame { fill: var(--panel); stroke: var(--contour); stroke-width: 1.2; }
+.contour { fill: var(--zone); stroke: var(--contour); stroke-width: 1.4; }
+.store-frame { fill: var(--store-zone); stroke: var(--store); stroke-width: 1.2; stroke-dasharray: 6 4; }
+.note { fill: var(--panel); stroke: var(--contour); stroke-width: 1; stroke-dasharray: 3 3; }
+.box-path   { fill: var(--path-fill);   stroke: var(--path);   stroke-width: 1.4; }
+.box-model  { fill: var(--model-fill);  stroke: var(--model);  stroke-width: 1.4; }
+.box-world  { fill: var(--world-fill);  stroke: var(--world);  stroke-width: 1.4; }
+.box-engine { fill: var(--engine-fill); stroke: var(--engine); stroke-width: 1.4; }
+.box-guard  { fill: var(--guard-fill);  stroke: var(--guard);  stroke-width: 1.4; }
+.box-store  { fill: var(--store-fill);  stroke: var(--store);  stroke-width: 1.2; }
+.dash { stroke-dasharray: 6 4; }
+
+.e { fill: none; stroke-width: 1.6; }
+.e-path { stroke: var(--path); }
+.e-model { stroke: var(--model); }
+.e-world { stroke: var(--world); }
+.e-engine { stroke: var(--engine); }
+.e-guard { stroke: var(--guard); }
+.e-store { stroke: var(--store); }
+.e-dot { stroke: var(--contour); stroke-dasharray: 2 3; }
+.m-path { fill: var(--path); }
+.m-model { fill: var(--model); }
+.m-world { fill: var(--world); }
+.m-engine { fill: var(--engine); }
+.m-guard { fill: var(--guard); }
+.m-store { fill: var(--store); }
+.c-path { fill: var(--path) !important; }
+.c-model { fill: var(--model) !important; }
+.c-world { fill: var(--world) !important; }
+.c-engine { fill: var(--engine) !important; }
+.c-guard { fill: var(--guard) !important; }
+
+/* legend */
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--fg-2); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 22px; height: 13px; border-radius: 3px; border: 1.5px solid; flex: none; }
+.sw.solid { border-color: var(--fg-2); background: var(--panel); }
+.sw.dashed { border-color: var(--fg-2); border-style: dashed; background: var(--panel); }
+.sw.path { background: var(--path-fill); border-color: var(--path); }
+.sw.model { background: var(--model-fill); border-color: var(--model); }
+.sw.world { background: var(--world-fill); border-color: var(--world); }
+.sw.engine { background: var(--engine-fill); border-color: var(--engine); }
+.sw.guard { background: var(--guard-fill); border-color: var(--guard); }
+.sw.store { background: var(--store-fill); border-color: var(--store); }
+
+/* steps */
+.steps {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px 28px;
+}
+.steps li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: baseline; font-size: 14px; color: var(--fg-2); min-width: 0; }
+.steps .num { font-family: var(--font-mono); font-weight: 600; font-size: 12.5px; color: var(--fg); font-variant-numeric: tabular-nums; }
+.steps b { color: var(--fg); font-weight: 600; }
+
+/* tables */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
+tr:last-child td { border-bottom: 0; }
+thead th { font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--zone); }
+td.act { font-weight: 600; color: var(--fg); min-width: 170px; }
+td.how { color: var(--fg-2); min-width: 190px; }
+td.yes { min-width: 230px; }
+td.no { color: var(--muted); min-width: 190px; }
+.tag { display: inline-block; font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-radius: 4px; margin-right: 4px; white-space: nowrap; }
+.tag.model { background: var(--model-fill); color: var(--model); }
+.tag.world { background: var(--world-fill); color: var(--world); }
+.tag.engine { background: var(--engine-fill); color: var(--engine); }
+.tag.path { background: var(--path-fill); color: var(--path); }
+
+table.matrix { font-size: 13px; }
+.matrix th.slot, .matrix td.slot { min-width: 200px; }
+.matrix td.slot b { display: block; color: var(--fg); }
+.matrix td.slot span { color: var(--muted); font-size: 12.5px; }
+.matrix thead th:not(.slot) { text-align: center; min-width: 108px; }
+.matrix td.cell { text-align: center; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); border-left: 1px solid var(--rule); }
+.matrix td.cell.on { background: var(--engine-fill); color: var(--engine); font-weight: 500; }
+.matrix td.cell.on.vis { background: var(--path-fill); color: var(--path); }
+.foot-note { margin: 0; color: var(--muted); font-size: 13px; max-width: 90ch; }
+
+/* invariants */
+.inv { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
+.inv > div { padding: 16px 18px; border-right: 1px solid var(--rule); min-width: 0; }
+.inv > div:last-child { border-right: 0; }
+.inv h3 { margin: 0 0 8px; font-size: 14.5px; }
+.inv ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13.5px; color: var(--fg-2); }
+@media (max-width: 1180px) {
+  .inv > div { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .inv > div:last-child { border-bottom: 0; }
+}
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule); padding-top: 14px; max-width: 90ch; }
+</style>
+
+<div class="page">
+
+<header>
+  <div class="eyebrow">Целевая схема для согласования · черновик 30.10.2026 · источники — GAMEPLAY_PLAN.md и LLM_PLAN.md</div>
+  <h1>«Куро Продакшн» · решения текстом</h1>
+  <p class="lead">На совещании нет вариантов: студент находит их в документах лотка и пишет план сам.
+  LangChain-модель определяет, что это за мысль, отмечает пункты рубрики и отвечает голосами Марии и Петра.
+  Цифры, выбор и эталон остаются за сервером: их считают мир и учетный движок, а решение подтверждается кнопкой.</p>
+</header>
+
+<section>
+  <figure>
+    <div class="scroll">
+<svg class="diagram d1" viewBox="0 0 1440 880" role="img" aria-label="Архитектура: студент читает документы точки и пишет план; API проверяет вход и выход и запускает граф совещания на LangGraph; граф вызывает LLM-слой, чтобы определить тип мысли, отметить рубрику и озвучить героев, а цифры и документы берет у мира quote.py; после подписи движок пересобирает события и эталон; на закрытии месяца движок отдает факт для разбора; состояние партии пишет только API.">
+  <defs>
+    <marker id="a-path" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-path"/></marker>
+    <marker id="a-model" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-model"/></marker>
+    <marker id="a-world" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-world"/></marker>
+    <marker id="a-engine" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-engine"/></marker>
+    <marker id="a-guard" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-guard"/></marker>
+    <marker id="a-store" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-store"/></marker>
+  </defs>
+
+  <!-- данные методиста -->
+  <rect x="16" y="150" width="190" height="452" rx="6" class="frame"/>
+  <text x="111" y="174" text-anchor="middle" class="t-frame">Данные методиста</text>
+  <text x="111" y="190" text-anchor="middle" class="t-sub">файлы в репозитории</text>
+
+  <rect x="28" y="202" width="166" height="62" rx="5" class="box-world dash"/>
+  <text x="111" y="224" text-anchor="middle" class="t-title">Листы героев</text>
+  <text x="111" y="241" text-anchor="middle" class="t-line">Мария, Петр: тон, эмоции</text>
+  <text x="111" y="255" text-anchor="middle" class="t-sub">→ промпты LLM-слоя</text>
+
+  <rect x="28" y="276" width="166" height="62" rx="5" class="box-world dash"/>
+  <text x="111" y="298" text-anchor="middle" class="t-title">Рубрика · 5 пунктов</text>
+  <text x="111" y="315" text-anchor="middle" class="t-line">вопрос героя на пункт</text>
+  <text x="111" y="329" text-anchor="middle" class="t-sub">→ LLM-слой и проверки</text>
+
+  <rect x="28" y="359" width="166" height="62" rx="5" class="box-world dash"/>
+  <text x="111" y="381" text-anchor="middle" class="t-code">world.yaml</text>
+  <text x="111" y="398" text-anchor="middle" class="t-line">документы точек, цены,</text>
+  <text x="111" y="412" text-anchor="middle" class="t-line">районы, коридоры</text>
+
+  <rect x="28" y="439" width="166" height="62" rx="5" class="box-world dash"/>
+  <text x="111" y="461" text-anchor="middle" class="t-title">Проверочные фразы</text>
+  <text x="111" y="478" text-anchor="middle" class="t-line">≥ 30 на слот, порог 95%</text>
+  <text x="111" y="492" text-anchor="middle" class="t-sub">→ проверка LLM-слоя</text>
+
+  <rect x="28" y="519" width="166" height="62" rx="5" class="box-world"/>
+  <text x="111" y="541" text-anchor="middle" class="t-title">Сценарий и решение</text>
+  <text x="111" y="558" text-anchor="middle" class="t-line">ред. 2: Б1–Б45, П1–П17</text>
+  <text x="111" y="572" text-anchor="middle" class="t-line">тесты 796 / 5 216 / 392</text>
+
+  <!-- игрок и ведущий -->
+  <rect x="536" y="20" width="300" height="66" rx="6" class="box-path"/>
+  <text x="686" y="43" text-anchor="middle" class="t-title">Игрок · браузер</text>
+  <text x="686" y="61" text-anchor="middle" class="t-line">demo-next/index.html · Unity WebGL</text>
+  <text x="686" y="76" text-anchor="middle" class="t-line">документы → план → подпись → проводки</text>
+
+  <rect x="940" y="20" width="260" height="66" rx="6" class="box-store dash"/>
+  <text x="1070" y="43" text-anchor="middle" class="t-title">Ведущий · этап 4</text>
+  <text x="1070" y="61" text-anchor="middle" class="t-line">кабинет: команды и рейтинг</text>
+  <text x="1070" y="76" text-anchor="middle" class="t-line">переписки и шкала «бизнес»</text>
+
+  <!-- контур сервера -->
+  <rect x="226" y="112" width="1000" height="750" rx="8" class="contour"/>
+  <text x="726" y="136" text-anchor="middle" class="t-frame">Сервер игры «Куро» · FastAPI · Python 3.12 · на этапе 1 один процесс</text>
+
+  <!-- проверки -->
+  <rect x="246" y="160" width="220" height="140" rx="6" class="box-guard dash"/>
+  <text x="356" y="183" text-anchor="middle" class="t-title">Проверки · без LLM</text>
+  <text x="356" y="202" text-anchor="middle" class="t-line">Вход: ≤ 500 символов,</text>
+  <text x="356" y="217" text-anchor="middle" class="t-line">≤ 8 реплик за совещание</text>
+  <text x="356" y="236" text-anchor="middle" class="t-line">Выход: числа только из Offer,</text>
+  <text x="356" y="251" text-anchor="middle" class="t-line">без счетов в рейтинге,</text>
+  <text x="356" y="266" text-anchor="middle" class="t-line">в вопросе героя нет ответа</text>
+  <text x="356" y="287" text-anchor="middle" class="t-sub">сбой → повтор, затем шаблон</text>
+
+  <!-- API -->
+  <rect x="536" y="160" width="300" height="100" rx="6" class="box-path dash"/>
+  <text x="686" y="184" text-anchor="middle" class="t-title">API · FastAPI — единственный вход</text>
+  <text x="686" y="205" text-anchor="middle" class="t-line">владелец состояния партии:</text>
+  <text x="686" y="221" text-anchor="middle" class="t-line">день, выборы, журнал, счет 51</text>
+  <text x="686" y="241" text-anchor="middle" class="t-sub">REST + SSE · таймер совещаний · лимиты</text>
+
+  <!-- граф совещания -->
+  <rect x="536" y="330" width="300" height="124" rx="6" class="box-path dash"/>
+  <text x="686" y="354" text-anchor="middle" class="t-title">Граф совещания · LangGraph</text>
+  <text x="686" y="374" text-anchor="middle" class="t-line">interpret → quote → react → ход игрока</text>
+  <text x="686" y="389" text-anchor="middle" class="t-line">«Подписать» → commit</text>
+  <text x="686" y="404" text-anchor="middle" class="t-line">конец месяца → debrief</text>
+  <text x="686" y="423" text-anchor="middle" class="t-line">state + реплика → новый state</text>
+  <text x="686" y="442" text-anchor="middle" class="t-sub">чекпоинт после каждого шага</text>
+
+  <!-- мир -->
+  <rect x="246" y="340" width="220" height="100" rx="6" class="box-world dash"/>
+  <text x="356" y="363" text-anchor="middle" class="t-title">Мир · quote.py · без LLM</text>
+  <text x="356" y="382" text-anchor="middle" class="t-line">Proposal + world.yaml → Offer</text>
+  <text x="356" y="397" text-anchor="middle" class="t-line">документы точки для лотка,</text>
+  <text x="356" y="412" text-anchor="middle" class="t-line">заем учредителей при нехватке</text>
+  <text x="356" y="429" text-anchor="middle" class="t-sub">один мир для всех команд</text>
+
+  <!-- LLM-слой -->
+  <rect x="920" y="330" width="286" height="142" rx="6" class="box-model dash"/>
+  <text x="1063" y="354" text-anchor="middle" class="t-title">LLM-слой · langchain-anthropic</text>
+  <text x="1063" y="374" text-anchor="middle" class="t-line">interpret: тип мысли, действия,</text>
+  <text x="1063" y="389" text-anchor="middle" class="t-line">Proposal, рубрика с цитатами</text>
+  <text x="1063" y="404" text-anchor="middle" class="t-line">react: вопросы и реплики героев</text>
+  <text x="1063" y="419" text-anchor="middle" class="t-line">debrief: разбор «ожидание и факт»</text>
+  <text x="1063" y="440" text-anchor="middle" class="t-line">кэш промпта · ключ API только здесь</text>
+  <text x="1063" y="459" text-anchor="middle" class="t-sub">молчит 15 с → запасные карточки</text>
+
+  <!-- внешняя модель -->
+  <rect x="1246" y="300" width="178" height="180" rx="6" class="frame"/>
+  <text x="1335" y="324" text-anchor="middle" class="t-frame">Внешняя модель</text>
+  <rect x="1258" y="338" width="154" height="126" rx="5" class="box-model"/>
+  <text x="1335" y="362" text-anchor="middle" class="t-title">Claude Opus 5.5</text>
+  <text x="1335" y="381" text-anchor="middle" class="t-line">Anthropic API</text>
+  <text x="1335" y="400" text-anchor="middle" class="t-line">по умолчанию;</text>
+  <text x="1335" y="415" text-anchor="middle" class="t-line">дешевле — после</text>
+  <text x="1335" y="430" text-anchor="middle" class="t-line">проверки фраз</text>
+
+  <!-- учетный движок -->
+  <rect x="246" y="500" width="220" height="100" rx="6" class="box-engine dash"/>
+  <text x="356" y="523" text-anchor="middle" class="t-title">Учетный движок · без LLM</text>
+  <text x="356" y="542" text-anchor="middle" class="t-line">Choice.params → события дня,</text>
+  <text x="356" y="557" text-anchor="middle" class="t-line">эталон, факт месяца для разбора</text>
+  <text x="356" y="577" text-anchor="middle" class="t-mono">Дт = Кт · 19 = 0 · ОДДС = 51</text>
+
+  <!-- хранение -->
+  <rect x="246" y="680" width="960" height="166" rx="8" class="store-frame"/>
+  <text x="726" y="704" text-anchor="middle" class="t-frame">Хранение · SQLite на этапе 1 → PostgreSQL · эталон только на сервере</text>
+
+  <rect x="262" y="722" width="190" height="108" rx="5" class="box-store"/>
+  <text x="357" y="746" text-anchor="middle" class="t-title">эталон</text>
+  <text x="357" y="765" text-anchor="middle" class="t-mono">reference_postings</text>
+  <text x="357" y="780" text-anchor="middle" class="t-mono">forms_66n · max_score</text>
+  <text x="357" y="802" text-anchor="middle" class="t-sub">пишет только движок</text>
+
+  <rect x="556" y="722" width="268" height="108" rx="5" class="box-store"/>
+  <text x="690" y="746" text-anchor="middle" class="t-title">совещания</text>
+  <text x="690" y="765" text-anchor="middle" class="t-mono">meeting_checkpoints · transcripts</text>
+  <text x="690" y="780" text-anchor="middle" class="t-mono">rubric_marks · debriefs</text>
+  <text x="690" y="802" text-anchor="middle" class="t-sub">пишет только граф</text>
+
+  <rect x="876" y="722" width="314" height="108" rx="5" class="box-store"/>
+  <text x="1033" y="746" text-anchor="middle" class="t-title">партия</text>
+  <text x="1033" y="765" text-anchor="middle" class="t-mono">sessions · choices · mood</text>
+  <text x="1033" y="780" text-anchor="middle" class="t-mono">player_journal · answers</text>
+  <text x="1033" y="802" text-anchor="middle" class="t-sub">пишет только API</text>
+
+  <!-- стрелки -->
+  <!-- 01 / 08 игрок ↔ API -->
+  <line x1="686" y1="86" x2="686" y2="158" class="e e-path" marker-end="url(#a-path)"/>
+  <text x="694" y="104" class="lbl out"><tspan class="n">01 · 08</tspan> · HTTPS: REST + SSE</text>
+
+  <!-- 02 / 07 проверки -->
+  <line x1="536" y1="192" x2="468" y2="192" class="e e-guard" marker-end="url(#a-guard)"/>
+  <text x="501" y="185" text-anchor="middle" class="lbl"><tspan class="n">02</tspan> · вход</text>
+  <line x1="536" y1="240" x2="468" y2="240" class="e e-guard" marker-end="url(#a-guard)"/>
+  <text x="501" y="256" text-anchor="middle" class="lbl"><tspan class="n">07</tspan> · выход</text>
+
+  <!-- 03 API → граф -->
+  <line x1="686" y1="260" x2="686" y2="328" class="e e-path" marker-end="url(#a-path)"/>
+  <text x="694" y="299" class="lbl"><tspan class="n">03</tspan> · state + текст или пресет</text>
+
+  <!-- 04 / 06 граф → LLM-слой -->
+  <line x1="836" y1="372" x2="918" y2="372" class="e e-model" marker-end="url(#a-model)"/>
+  <text x="866" y="365" text-anchor="middle" class="lbl"><tspan class="n">04 · 06</tspan></text>
+
+  <!-- LLM-слой → модель -->
+  <line x1="1206" y1="400" x2="1256" y2="400" class="e e-model" marker-end="url(#a-model)"/>
+  <text x="1232" y="393" text-anchor="middle" class="lbl">HTTPS</text>
+
+  <!-- 05 граф → мир -->
+  <line x1="536" y1="390" x2="468" y2="390" class="e e-world" marker-end="url(#a-world)"/>
+  <text x="501" y="383" text-anchor="middle" class="lbl"><tspan class="n">05</tspan> · quote</text>
+
+  <!-- world.yaml → мир -->
+  <line x1="194" y1="390" x2="244" y2="390" class="e e-world" marker-end="url(#a-world)"/>
+  <text x="222" y="381" text-anchor="middle" class="lbl out">читает</text>
+
+  <!-- сценарий → движок -->
+  <line x1="194" y1="550" x2="244" y2="550" class="e e-engine" marker-end="url(#a-engine)"/>
+  <text x="222" y="541" text-anchor="middle" class="lbl out">шаблоны</text>
+
+  <!-- 09 граф → движок -->
+  <path d="M600 454 V476 H356 V498" class="e e-engine" marker-end="url(#a-engine)"/>
+  <text x="478" y="470" text-anchor="middle" class="lbl"><tspan class="n">09</tspan> · commit(Choice)</text>
+
+  <!-- 10 движок → эталон -->
+  <line x1="356" y1="600" x2="356" y2="720" class="e e-engine" marker-end="url(#a-engine)"/>
+  <text x="364" y="648" class="lbl"><tspan class="n">10</tspan> · дни, документы, эталон</text>
+
+  <!-- чекпоинт граф → совещания -->
+  <line x1="740" y1="454" x2="740" y2="720" class="e e-store" marker-end="url(#a-store)"/>
+  <text x="748" y="520" class="lbl">чекпоинт</text>
+  <text x="748" y="534" class="lbl">каждого шага</text>
+
+  <!-- 11 API → партия (с перескоком через стрелку 04) -->
+  <path d="M836 236 H904 V364 A8 8 0 0 1 904 380 V720" class="e e-path" marker-end="url(#a-path)"/>
+  <text x="912" y="560" class="lbl"><tspan class="n">11</tspan> · выбор и журнал</text>
+  <text x="912" y="574" class="lbl">одной транзакцией</text>
+
+  <!-- 12 ведущий → API -->
+  <path d="M1040 86 V205 H838" class="e e-store dash" marker-end="url(#a-store)"/>
+  <text x="1048" y="150" class="lbl"><tspan class="n">12</tspan> · переписки, рубрика</text>
+
+  <!-- 13 движок → граф: факт месяца для разбора -->
+  <path d="M466 580 H640 V456" class="e e-engine" marker-end="url(#a-engine)"/>
+  <text x="553" y="573" text-anchor="middle" class="lbl"><tspan class="n">13</tspan> · факт месяца</text>
+</svg>
+    </div>
+    <div class="legend" aria-label="Обозначения">
+      <span><i class="sw solid"></i>есть сейчас</span>
+      <span><i class="sw dashed"></i>в плане</span>
+      <span><i class="sw path"></i>ход игрока</span>
+      <span><i class="sw model"></i>модель</span>
+      <span><i class="sw world"></i>мир и данные методиста</span>
+      <span><i class="sw engine"></i>учет</span>
+      <span><i class="sw guard"></i>проверки</span>
+      <span><i class="sw store"></i>хранение и ведущий</span>
+    </div>
+    <figcaption>Стрелка — направление вызова, ответ идет по тому же соединению. Номер — порядок шагов одного хода на совещании, 13 — закрытие месяца.
+    Варианты не приходят карточками: мир кладет документы точки в лоток. Модель видна только через LLM-слой; цифры приходят из мира, эталон и факт месяца — из движка.</figcaption>
+  </figure>
+
+  <ol class="steps" aria-label="Шаги одного хода">
+    <li><span class="num">01</span><span><b>Студент читает</b> документы в лотке и пишет план с обоснованием. Карточки А/Б/В — только учебный и запасной режимы.</span></li>
+    <li><span class="num">02</span><span><b>Вход:</b> не длиннее 500 символов, не больше 8 реплик, совещание открыто.</span></li>
+    <li><span class="num">03</span><span><b>Граф получает</b> состояние партии (день, счет 51, выборы) и текст.</span></li>
+    <li><span class="num">04</span><span><b>interpret:</b> модель определяет тип мысли, разбивает план на действия и отмечает пункты рубрики с цитатами.</span></li>
+    <li><span class="num">05</span><span><b>quote:</b> мир считает Offer по <code>world.yaml</code>. Модель здесь не участвует.</span></li>
+    <li><span class="num">06</span><span><b>react:</b> пропущен пункт рубрики — герой задает вопрос без ответа внутри; иначе отвечает 1–2 фразами из фактов Offer.</span></li>
+    <li><span class="num">07</span><span><b>Выход:</b> каждое число есть в Offer, в рейтинге нет счетов, в вопросе нет ответа. Сбой — один повтор, затем шаблон.</span></li>
+    <li><span class="num">08</span><span><b>Студент видит</b> реплики и карточку плана, пишет снова или жмет «Подписать».</span></li>
+    <li><span class="num">09</span><span><b>commit:</b> сохраняется Choice с параметрами. Отменить нельзя.</span></li>
+    <li><span class="num">10</span><span><b>Движок пересобирает</b> события, документы следующих дней и эталон.</span></li>
+    <li><span class="num">11</span><span><b>API записывает</b> выбор и журнал одной транзакцией. Эталон в браузер не уходит.</span></li>
+    <li><span class="num">12</span><span><b>Ведущий видит</b> переписки и рубрику с цитатами, может поправить оценку (этап 4).</span></li>
+    <li><span class="num">13</span><span><b>Закрытие месяца:</b> движок отдает факт, debrief пишет разбор «ожидание и факт». Числа — только из факта.</span></li>
+  </ol>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Граф совещания в LangGraph</h2>
+    <p>Один слот — одно совещание. Узлы с моделью только понимают и говорят; переходы, цифры и подпись — код.</p>
+  </div>
+  <figure>
+    <div class="scroll">
+<svg class="diagram d2" viewBox="0 0 1200 520" role="img" aria-label="Цикл совещания: interpret определяет тип мысли и пункты рубрики, quote считает Offer, react задает вопрос по пропущенному пункту или отвечает, guard проверяет, студент видит карточку плана. Пишет снова — возврат к interpret, не больше 8 раз; «Подписать» ведет в commit и движок; на закрытии месяца движок отдает факт в debrief, разбор видят студент и ведущий.">
+  <defs>
+    <marker id="b-path" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-path"/></marker>
+    <marker id="b-model" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-model"/></marker>
+    <marker id="b-world" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-world"/></marker>
+    <marker id="b-engine" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-engine"/></marker>
+    <marker id="b-guard" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="m-guard"/></marker>
+  </defs>
+
+  <!-- петли сверху -->
+  <path d="M1150 170 V66 H290 V168" class="e e-path" marker-end="url(#b-path)"/>
+  <text x="720" y="60" text-anchor="middle" class="lbl out">игрок пишет снова · не больше 8 реплик за совещание</text>
+  <path d="M1090 170 V116 H496 V168" class="e e-path dash" marker-end="url(#b-path)"/>
+  <text x="793" y="110" text-anchor="middle" class="lbl out">карточка А/Б/В (учебный, запасной режим) — сразу в quote</text>
+
+  <!-- узлы, ряд 1 -->
+  <rect x="16" y="170" width="136" height="72" rx="6" class="box-path"/>
+  <text x="84" y="195" text-anchor="middle" class="t-title">Совещание</text>
+  <text x="84" y="213" text-anchor="middle" class="t-line">ситуация + документы</text>
+  <text x="84" y="231" text-anchor="middle" class="t-chip c-path">старт</text>
+
+  <rect x="222" y="170" width="136" height="72" rx="6" class="box-model dash"/>
+  <text x="290" y="195" text-anchor="middle" class="t-code">interpret</text>
+  <text x="290" y="213" text-anchor="middle" class="t-line">тип мысли, рубрика</text>
+  <text x="290" y="231" text-anchor="middle" class="t-chip c-model">LLM</text>
+
+  <rect x="428" y="170" width="136" height="72" rx="6" class="box-world dash"/>
+  <text x="496" y="195" text-anchor="middle" class="t-code">quote</text>
+  <text x="496" y="213" text-anchor="middle" class="t-line">Proposal → Offer</text>
+  <text x="496" y="231" text-anchor="middle" class="t-chip c-world">без LLM</text>
+
+  <rect x="634" y="170" width="136" height="72" rx="6" class="box-model dash"/>
+  <text x="702" y="195" text-anchor="middle" class="t-code">react</text>
+  <text x="702" y="213" text-anchor="middle" class="t-line">вопрос или реплика</text>
+  <text x="702" y="231" text-anchor="middle" class="t-chip c-model">LLM</text>
+
+  <rect x="840" y="170" width="136" height="72" rx="6" class="box-guard dash"/>
+  <text x="908" y="195" text-anchor="middle" class="t-code">guard</text>
+  <text x="908" y="213" text-anchor="middle" class="t-line">числа ⊆ Offer</text>
+  <text x="908" y="231" text-anchor="middle" class="t-chip c-guard">без LLM</text>
+
+  <rect x="1046" y="170" width="136" height="72" rx="6" class="box-path"/>
+  <text x="1114" y="195" text-anchor="middle" class="t-title">Ход игрока</text>
+  <text x="1114" y="213" text-anchor="middle" class="t-line">видит карточку</text>
+  <text x="1114" y="231" text-anchor="middle" class="t-chip c-path">ждем</text>
+
+  <!-- стрелки ряда 1 -->
+  <line x1="152" y1="206" x2="220" y2="206" class="e e-path" marker-end="url(#b-path)"/>
+  <text x="187" y="199" text-anchor="middle" class="lbl out">текст</text>
+  <line x1="358" y1="206" x2="426" y2="206" class="e e-model" marker-end="url(#b-model)"/>
+  <text x="393" y="199" text-anchor="middle" class="lbl out">Proposal</text>
+  <line x1="564" y1="206" x2="632" y2="206" class="e e-world" marker-end="url(#b-world)"/>
+  <text x="599" y="199" text-anchor="middle" class="lbl out">Offer</text>
+  <line x1="770" y1="206" x2="838" y2="206" class="e e-model" marker-end="url(#b-model)"/>
+  <text x="805" y="199" text-anchor="middle" class="lbl out">реплики</text>
+  <line x1="976" y1="206" x2="1044" y2="206" class="e e-guard" marker-end="url(#b-guard)"/>
+  <text x="1011" y="199" text-anchor="middle" class="lbl out">SSE</text>
+
+  <!-- повтор guard -->
+  <path d="M930 242 V266 H886 V244" class="e e-guard" marker-end="url(#b-guard)"/>
+  <text x="908" y="284" text-anchor="middle" class="lbl out">сбой → 1 повтор, затем шаблон</text>
+
+  <!-- что несет Offer -->
+  <line x1="496" y1="242" x2="496" y2="282" class="e e-dot"/>
+  <rect x="410" y="282" width="200" height="110" rx="5" class="note"/>
+  <text x="422" y="302" class="t-title" style="font-size:12px">Offer всегда несет:</text>
+  <text x="422" y="319" class="t-line">· цифры из world.yaml</text>
+  <text x="422" y="334" class="t-line">· нет рычага → вопрос</text>
+  <text x="422" y="349" class="t-line">· вопрос → факты документов</text>
+  <text x="422" y="364" class="t-line">· вне мира → отказ</text>
+  <text x="422" y="379" class="t-line">· мало денег → заем</text>
+
+  <!-- рубрика -->
+  <line x1="290" y1="242" x2="290" y2="282" class="e e-dot"/>
+  <rect x="200" y="282" width="180" height="110" rx="5" class="note"/>
+  <text x="212" y="302" class="t-title" style="font-size:12px">Рубрика в interpret:</text>
+  <text x="212" y="319" class="t-line">· цель · цифры</text>
+  <text x="212" y="334" class="t-line">· деньги во времени</text>
+  <text x="212" y="349" class="t-line">· прибыль ≠ деньги</text>
+  <text x="212" y="364" class="t-line">· риск и альтернатива</text>
+  <text x="212" y="383" class="t-sub">пропуск → вопрос героя</text>
+
+  <!-- запасной режим -->
+  <rect x="16" y="412" width="342" height="94" rx="5" class="note"/>
+  <text x="30" y="432" class="t-title" style="font-size:12px">Запасной режим</text>
+  <text x="30" y="449" class="t-line">модель молчит 15 с, 8 реплик или вышло время →</text>
+  <text x="30" y="464" class="t-line">карточка плана по последней мысли</text>
+  <text x="30" y="479" class="t-line">или запасные карточки А/Б/В;</text>
+  <text x="30" y="494" class="t-line">без сервера — демо офлайн, как сейчас</text>
+
+  <!-- ряд 2: подпись -->
+  <line x1="1114" y1="242" x2="1114" y2="298" class="e e-path" marker-end="url(#b-path)"/>
+  <text x="1122" y="276" class="lbl out">«Подписать»</text>
+
+  <rect x="1046" y="300" width="136" height="64" rx="6" class="box-path"/>
+  <text x="1114" y="326" text-anchor="middle" class="t-title">Подписать</text>
+  <text x="1114" y="345" text-anchor="middle" class="t-line">кнопка, не реплика</text>
+
+  <line x1="1046" y1="332" x2="978" y2="332" class="e e-engine" marker-end="url(#b-engine)"/>
+  <text x="1011" y="325" text-anchor="middle" class="lbl out">Offer</text>
+
+  <rect x="840" y="300" width="136" height="64" rx="6" class="box-engine dash"/>
+  <text x="908" y="326" text-anchor="middle" class="t-code">commit</text>
+  <text x="908" y="345" text-anchor="middle" class="t-line">Choice, необратимо</text>
+
+  <line x1="840" y1="332" x2="772" y2="332" class="e e-engine" marker-end="url(#b-engine)"/>
+  <text x="805" y="325" text-anchor="middle" class="lbl out">params</text>
+
+  <rect x="634" y="300" width="136" height="64" rx="6" class="box-engine dash"/>
+  <text x="702" y="326" text-anchor="middle" class="t-title">Движок</text>
+  <text x="702" y="345" text-anchor="middle" class="t-line">дни, документы, эталон</text>
+
+  <!-- ряд 3: разбор месяца -->
+  <line x1="702" y1="364" x2="702" y2="410" class="e e-engine" marker-end="url(#b-engine)"/>
+  <text x="710" y="392" class="lbl out">факт месяца</text>
+
+  <rect x="634" y="412" width="136" height="72" rx="6" class="box-model dash"/>
+  <text x="702" y="437" text-anchor="middle" class="t-code">debrief</text>
+  <text x="702" y="455" text-anchor="middle" class="t-line">ожидание и факт</text>
+  <text x="702" y="473" text-anchor="middle" class="t-chip c-model">LLM</text>
+
+  <line x1="770" y1="448" x2="838" y2="448" class="e e-model" marker-end="url(#b-model)"/>
+  <text x="805" y="441" text-anchor="middle" class="lbl out">текст</text>
+
+  <rect x="840" y="412" width="136" height="72" rx="6" class="box-store dash"/>
+  <text x="908" y="437" text-anchor="middle" class="t-title">Разбор месяца</text>
+  <text x="908" y="455" text-anchor="middle" class="t-line">студенту и ведущему</text>
+  <text x="908" y="473" text-anchor="middle" class="t-chip">шкала «бизнес»</text>
+</svg>
+    </div>
+    <figcaption>Вопрос героя запускает первый пропущенный пункт рубрики в порядке цифры → деньги → риск → альтернатива, одинаково для всех команд и не больше двух раз за совещание. Числа в репликах берутся только из Offer. Если студент торгуется («а за 80 тысяч?»), его число попадает в <code>*_requested</code>, и коридор применяет quote. На закрытии месяца debrief сравнивает цитату студента с фактом движка.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Что делает игрок и на что это влияет</h2>
+    <p>До подписи переписка ничего не меняет в учете. После подписи меняются суммы будущих событий и эталон, а уже введенные проводки остаются как есть.</p>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Действие игрока</th><th>Что происходит</th><th>Влияет на</th><th>Не влияет на</th></tr></thead>
+      <tbody>
+        <tr><td class="act">Читает документы и пишет план</td><td class="how"><span class="tag model">interpret</span><span class="tag world">quote</span><span class="tag model">react</span></td><td class="yes">карточку плана, вопросы героев, пункты рубрики, настроение Марии и Петра</td><td class="no">учет и баллы — пока нет подписи</td></tr>
+        <tr><td class="act">Отвечает на вопрос героя</td><td class="how"><span class="tag model">interpret</span> заново, с учетом ответа</td><td class="yes">пункты рубрики и карточку плана</td><td class="no">не больше двух вопросов за совещание</td></tr>
+        <tr><td class="act">Спрашивает: «Сколько стоит доставка из пригорода?»</td><td class="how"><span class="tag world">quote</span> отдает факты документов</td><td class="yes">ответ героя</td><td class="no">состояние партии</td></tr>
+        <tr><td class="act">Торгуется: «а за 80 тысяч?»</td><td class="how">число уходит в <code>*_requested</code>, quote применяет коридор</td><td class="yes">условия в пределах коридора из <code>world.yaml</code></td><td class="no">скидку сверх правил; убедительность меняет только настроение</td></tr>
+        <tr><td class="act">Жмет карточку А/Б/В (учебный и запасной режимы)</td><td class="how"><span class="tag world">quote</span> без модели</td><td class="yes">ту же карточку плана, что у варианта редакции 2</td><td class="no">в рейтинге карточек нет</td></tr>
+        <tr><td class="act">Просит то, чего нет в мире: лизинг, крипта</td><td class="how">поле <code>unsupported</code> → react</td><td class="yes">реплику героя: отказ в образе</td><td class="no">состояние партии</td></tr>
+        <tr><td class="act">Предлагает рискованную схему: «зарплату в конверте»</td><td class="how"><span class="tag model">react</span> — предупреждение героя</td><td class="yes">отметку в разборе месяца</td><td class="no">учет — в версии 1 последствий нет</td></tr>
+        <tr><td class="act">Жмет «Подписать»</td><td class="how"><span class="tag engine">commit</span><span class="tag engine">движок</span></td><td class="yes">события и документы следующих дней, суммы, счет 51 и заем учредителей, эталон, максимум баллов, цех в офисе</td><td class="no">уже введенные проводки, правила баллов; решение нельзя отменить</td></tr>
+        <tr><td class="act">Вводит проводки</td><td class="how">сравнение с эталоном на сервере</td><td class="yes">баллы (2 за верную проводку), счет 51 по своему журналу</td><td class="no">модель в этом не участвует</td></tr>
+        <tr><td class="act">Закрывает месяц</td><td class="how"><span class="tag engine">движок</span> → <span class="tag model">debrief</span></td><td class="yes">разбор «ожидание и факт», шкалу «бизнес» с цитатами</td><td class="no">баллы за учет; рейтинг — до калибровки на пилоте</td></tr>
+        <tr><td class="act">Болтает с героями (позже, по желанию)</td><td class="how"><span class="tag model">react</span> без quote</td><td class="yes">настроение героев</td><td class="no">учет и баллы</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sec-head" style="margin-top:12px">
+    <h2>Карта влияния: 7 решений → события</h2>
+    <p>В ячейке — события, суммы которых пересчитывает движок после подписи. Б — базовый уровень, П — продвинутый.</p>
+  </div>
+  <div class="tbl-wrap">
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th class="slot">Решение и рычаги</th>
+          <th>Счет 51 сегодня</th>
+          <th>Зарплата и взносы</th>
+          <th>Аренда и амортизация</th>
+          <th>Продажи и доставка</th>
+          <th>Кредит и капитал</th>
+          <th>Сырье и себестоимость</th>
+          <th>События П</th>
+          <th>Цех в офисе</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="slot"><b>Площадка · Б2</b><span>способ + район: город, пригород, промзона</span></td>
+          <td class="cell on">Б2, Б5</td>
+          <td class="cell on">Б6, Б11, Б21, Б26, Б39</td>
+          <td class="cell on">Б13, Б28, Б41 · Б14, Б29, Б42</td>
+          <td class="cell on">Б10, Б24, Б36</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell on vis">площадка</td>
+        </tr>
+        <tr>
+          <td class="slot"><b>Деньги · Б3</b><span>источник, сумма 0,5–1,5 млн, срок 6–24 мес.</span></td>
+          <td class="cell on">Б3</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell on">Б12, Б27, Б40, Б44 · 66 или 67</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+        </tr>
+        <tr>
+          <td class="slot"><b>Оборудование · Б4</b><span>уровень по 10 позициям, можно без сушилки</span></td>
+          <td class="cell on">Б4, Б24</td>
+          <td class="cell">·</td>
+          <td class="cell on">Б14, Б29, Б42, Б20</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell on">до 100 тыс. → 10 и 25</td>
+          <td class="cell on">П1, П6, П17</td>
+          <td class="cell on vis">станки</td>
+        </tr>
+        <tr>
+          <td class="slot"><b>Сырье · Б7</b><span>горизонт 1–6 мес., скидка по таблице</span></td>
+          <td class="cell on">Б7, Б17, Б30</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell on">Б16, Б17, Б30</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+        </tr>
+        <tr>
+          <td class="slot"><b>Продвижение · Б18</b><span>да/нет + бюджет 10–60 тыс. в месяц</span></td>
+          <td class="cell on">Б18, Б31</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell on">Б25, Б38 · заказы по кривой</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+        </tr>
+        <tr>
+          <td class="slot"><b>Бригадир · Б22</b><span>кандидат + предложенный оклад</span></td>
+          <td class="cell">·</td>
+          <td class="cell on">Б22, Б26, Б39</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+        </tr>
+        <tr>
+          <td class="slot"><b>Блогер · П15</b><span>да/нет + цена, продвинутый уровень</span></td>
+          <td class="cell on">П15</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell on">П16</td>
+          <td class="cell">·</td>
+          <td class="cell">·</td>
+          <td class="cell on">П15, П16</td>
+          <td class="cell">·</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="foot-note">Каждое решение меняет прибыль (бонус 0–10 баллов) и максимум баллов траектории. Б43 и Б44 — вопросы на знание, а не решения. Коридоры и коэффициенты — черновик, их утверждает методист.</p>
+
+  <div class="sec-head" style="margin-top:12px">
+    <h2>Три шкалы оценки</h2>
+    <p>Рубрика оценивает рассуждение, а не выбор: пригород с хорошим обоснованием получает столько же, сколько город с хорошим обоснованием.</p>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Шкала</th><th>Из чего</th><th>Где видна</th><th>В рейтинге</th></tr></thead>
+      <tbody>
+        <tr><td class="act">Учет</td><td class="how">проводки — 2 балла, строки отчетности — 1 балл, как сейчас</td><td class="yes">итог игры, аудит</td><td class="no">да</td></tr>
+        <tr><td class="act">Бонус за прибыль</td><td class="how">0–10 баллов, как сейчас</td><td class="yes">итог игры</td><td class="no">да</td></tr>
+        <tr><td class="act">Бизнес</td><td class="how">рубрика: цель, цифры, деньги во времени, прибыль ≠ деньги, риск и альтернатива; пункт засчитан только с цитатой</td><td class="yes">студент, ведущий, разбор месяца</td><td class="no">нет, пока оценки модели не сверены с преподавателем на пилоте</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Инварианты</h2></div>
+  <div class="inv">
+    <div>
+      <h3>Состояние</h3>
+      <ul>
+        <li>Состояние партии пишет только API; выбор и журнал — одной транзакцией.</li>
+        <li>Choice появляется только по кнопке «Подписать» и не отменяется.</li>
+        <li>Эталон строится из <code>Choice.params</code>, а не из текста переписки.</li>
+        <li>У графа нет своего состояния; чекпоинт после каждого шага, перезагрузка не сбрасывает совещание.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Модель</h3>
+      <ul>
+        <li>Возвращает только поля схемы слота; числа игрока — в полях <code>*_requested</code>.</li>
+        <li>Говорит только фактами Offer; в рейтинге — ни слова о счетах и проводках.</li>
+        <li>Исход торга решают правила мира, убедительность меняет только настроение.</li>
+        <li>Вопрос героя указывает на тему, но не на вариант.</li>
+        <li>Просьбы вне мира получают отказ героя в образе.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Числа</h3>
+      <ul>
+        <li>Все суммы и документы точек — из <code>world.yaml</code> и движка, одинаковые для всех команд.</li>
+        <li>Пресеты редакции 2 дают 796 / 5 216 / 392 / 533.</li>
+        <li>Эталон и формы не уходят в браузер до аудита.</li>
+        <li>Версия модели и промпта сохраняется в Choice.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Отказы</h3>
+      <ul>
+        <li>Модель молчит 15 с — карточки А/Б/В, игра идет дальше.</li>
+        <li>Guard не пропустил реплику — один повтор, затем шаблонная.</li>
+        <li>8 реплик — остаются карточки и «Подписать».</li>
+        <li>Время совещания вышло — карточка плана по последней мысли или запасные карточки.</li>
+        <li>Нет сервера — демо работает офлайн, как сейчас.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Оценка</h3>
+      <ul>
+        <li>Рубрика оценивает рассуждение, а не выбор.</li>
+        <li>Пункт рубрики без цитаты студента не засчитан.</li>
+        <li>Цитата должна опираться на число или факт из документов.</li>
+        <li>Шкала «бизнес» вне рейтинга до калибровки на пилоте.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>Черновик к LLM_PLAN.md · «Куро Продакшн», деловая игра по бухучету · канон чисел — редакция 2 и решение к ней.</footer>
+
+</div>
